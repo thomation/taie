@@ -140,31 +140,78 @@ public class ConstantPropagation extends
         return Value.getUndef();
     }
 
-    static Value evaluateBinaryExp(BinaryExp be, CPFact in) {
-        Var op1 = be.getOperand1();
-        Var op2 = be.getOperand2();
+    static Value evaluateBinaryExp(BinaryExp exp, CPFact in) {
+        Var op1 = exp.getOperand1();
+        Var op2 = exp.getOperand2();
         Value v1 = in.get(op1);
         Value v2 = in.get(op2);
         if (v1.isConstant() && v2.isConstant()) {
-            if (be instanceof ArithmeticExp abe) {
+            if (exp instanceof ArithmeticExp abe) {
                 return evaluateArithmetricExp(abe, v1, v2);
+            } else if (exp instanceof BitwiseExp bwe) {
+                return evaluateBitwiseExp(bwe, v1, v2);
+            } else if (exp instanceof ConditionExp ce) {
+                return evaluateConditionExp(ce, v1, v2);
+            } else if (exp instanceof ShiftExp se) {
+                return evaluateShiftExp(se, v1, v2);
             }
+            throw new UnsupportedOperationException();
         }
         if (v1.isNAC() || v2.isNAC())
             return Value.getNAC();
-        throw new UnsupportedOperationException();
+        return Value.getUndef();
     }
 
-    static Value evaluateArithmetricExp(ArithmeticExp abe, Value v1, Value v2) {
+    static Value evaluateArithmetricExp(ArithmeticExp exp, Value v1, Value v2) {
         int ret = 0;
         int left = v1.getConstant();
         int right = v2.getConstant();
-        switch (abe.getOperator()) {
+        switch (exp.getOperator()) {
             case ADD -> ret = left + right;
             case SUB -> ret = left - right;
             case MUL -> ret = left * right;
             case DIV -> ret = left / right;
             case REM -> ret = left % right;
+        }
+        return Value.makeConstant(ret);
+    }
+
+    static Value evaluateBitwiseExp(BitwiseExp exp, Value v1, Value v2) {
+        int ret = 0;
+        int left = v1.getConstant();
+        int right = v2.getConstant();
+        switch (exp.getOperator()) {
+            case AND -> ret = left & right;
+            case OR -> ret = left | right;
+            case XOR -> ret = left ^ right;
+        }
+        return Value.makeConstant(ret);
+    }
+
+    static Value evaluateConditionExp(ConditionExp exp, Value v1, Value v2) {
+        boolean ret = false;
+        int left = v1.getConstant();
+        int right = v2.getConstant();
+        switch (exp.getOperator()) {
+            case EQ -> ret = left == right;
+            case NE -> ret = left != right;
+            case LT -> ret = left < right;
+            case GT -> ret = left > right;
+            case LE -> ret = left <= right;
+            case GE -> ret = left >= right;
+        }
+        int value = ret ? 1 : 0;
+        return Value.makeConstant(value);
+    }
+
+    static Value evaluateShiftExp(ShiftExp exp, Value v1, Value v2) {
+        int ret = 0;
+        int left = v1.getConstant();
+        int right = v2.getConstant();
+        switch (exp.getOperator()) {
+            case SHL -> ret = left << right;
+            case SHR -> ret = left >> right;
+            case USHR -> ret = left >>> right;
         }
         return Value.makeConstant(ret);
     }
