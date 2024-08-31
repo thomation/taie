@@ -135,16 +135,37 @@ public class ConstantPropagation extends
             return in.get(var);
         }
         if (exp instanceof BinaryExp be) {
-            Var op1 = be.getOperand1();
-            Var op2 = be.getOperand2();
-            Value v1 = in.get(op1);
-            Value v2 = in.get(op2);
-            if (v1.isConstant() && v2.isConstant()) {
-                throw new UnsupportedOperationException();
-            }
-            if (v1.isNAC() || v2.isNAC())
-                return Value.getNAC();
+            return evaluateBinaryExp(be, in);
         }
         return Value.getUndef();
+    }
+
+    static Value evaluateBinaryExp(BinaryExp be, CPFact in) {
+        Var op1 = be.getOperand1();
+        Var op2 = be.getOperand2();
+        Value v1 = in.get(op1);
+        Value v2 = in.get(op2);
+        if (v1.isConstant() && v2.isConstant()) {
+            if (be instanceof ArithmeticExp abe) {
+                return evaluateArithmetricExp(abe, v1, v2);
+            }
+        }
+        if (v1.isNAC() || v2.isNAC())
+            return Value.getNAC();
+        throw new UnsupportedOperationException();
+    }
+
+    static Value evaluateArithmetricExp(ArithmeticExp abe, Value v1, Value v2) {
+        int ret = 0;
+        int left = v1.getConstant();
+        int right = v2.getConstant();
+        switch (abe.getOperator()) {
+            case ADD -> ret = left + right;
+            case SUB -> ret = left - right;
+            case MUL -> ret = left * right;
+            case DIV -> ret = left / right;
+            case REM -> ret = left % right;
+        }
+        return Value.makeConstant(ret);
     }
 }
