@@ -65,7 +65,7 @@ public class LiveVariableAnalysis extends
     public boolean transferNode(Stmt stmt, SetFact<Var> in, SetFact<Var> out) {
         SetFact<Var> newIn = new SetFact<Var>();
         newIn.union(out);
-        if (!stmt.getDef().isEmpty()) {
+        if (!stmt.getDef().isEmpty() && stmt.getDef().get() instanceof Var) {
             newIn.remove((Var) stmt.getDef().get());
         }
         for (RValue v : stmt.getUses()) {
