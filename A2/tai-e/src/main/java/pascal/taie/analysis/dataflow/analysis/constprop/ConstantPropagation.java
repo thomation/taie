@@ -25,13 +25,12 @@ package pascal.taie.analysis.dataflow.analysis.constprop;
 import pascal.taie.analysis.dataflow.analysis.AbstractDataflowAnalysis;
 import pascal.taie.analysis.graph.cfg.CFG;
 import pascal.taie.config.AnalysisConfig;
-import pascal.taie.ir.IR;
 import pascal.taie.ir.exp.*;
-import pascal.taie.ir.stmt.DefinitionStmt;
 import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.language.type.PrimitiveType;
 import pascal.taie.language.type.Type;
-import pascal.taie.util.AnalysisException;
+
+import java.util.List;
 
 public class ConstantPropagation extends
         AbstractDataflowAnalysis<Stmt, CPFact> {
@@ -49,8 +48,14 @@ public class ConstantPropagation extends
 
     @Override
     public CPFact newBoundaryFact(CFG<Stmt> cfg) {
-        // Use absence to present undef
-        return new CPFact();
+        CPFact ret = new CPFact();
+        List<Var> params = cfg.getIR().getParams();
+        if (params != null && !params.isEmpty()) {
+            for (Var param : params) {
+                ret.update(param, Value.getNAC());
+            }
+        }
+        return ret;
     }
 
 
@@ -147,7 +152,7 @@ public class ConstantPropagation extends
         Value v2 = in.get(op2);
         if (v1.isConstant() && v2.isConstant()) {
             if (exp instanceof ArithmeticExp abe) {
-                return evaluateArithmetricExp(abe, v1, v2);
+                return evaluateArithmeticExp(abe, v1, v2);
             } else if (exp instanceof BitwiseExp bwe) {
                 return evaluateBitwiseExp(bwe, v1, v2);
             } else if (exp instanceof ConditionExp ce) {
@@ -162,7 +167,7 @@ public class ConstantPropagation extends
         return Value.getUndef();
     }
 
-    static Value evaluateArithmetricExp(ArithmeticExp exp, Value v1, Value v2) {
+    static Value evaluateArithmeticExp(ArithmeticExp exp, Value v1, Value v2) {
         int ret = 0;
         int left = v1.getConstant();
         int right = v2.getConstant();
