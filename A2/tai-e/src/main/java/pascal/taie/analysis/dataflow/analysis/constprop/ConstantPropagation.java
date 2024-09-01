@@ -142,6 +142,9 @@ public class ConstantPropagation extends
         if (exp instanceof BinaryExp be) {
             return evaluateBinaryExp(be, in);
         }
+        if(exp instanceof  InvokeVirtual iv) {
+            return Value.getNAC();
+        }
         return Value.getUndef();
     }
 
