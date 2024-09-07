@@ -69,7 +69,15 @@ public class DeadCodeDetection extends MethodAnalysis {
                 ir.getResult(LiveVariableAnalysis.ID);
         // keep statements (dead code) sorted in the resulting set
         Set<Stmt> deadCode = new TreeSet<>(Comparator.comparing(Stmt::getIndex));
-        // TODO - finish me
+        for(Stmt stmt: cfg) {
+            if(stmt.getDef().isEmpty())
+                continue;
+            Var def = (Var)stmt.getDef().get();
+            SetFact<Var> lives = liveVars.getResult(stmt);
+            if(!lives.contains(def)) {
+                deadCode.add(stmt);
+            }
+        }
         // Your task is to recognize dead code in ir and add it to deadCode
         return deadCode;
     }
