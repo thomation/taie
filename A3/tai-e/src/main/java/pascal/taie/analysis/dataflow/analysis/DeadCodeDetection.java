@@ -69,7 +69,15 @@ public class DeadCodeDetection extends MethodAnalysis {
                 ir.getResult(LiveVariableAnalysis.ID);
         // keep statements (dead code) sorted in the resulting set
         Set<Stmt> deadCode = new TreeSet<>(Comparator.comparing(Stmt::getIndex));
+        Set<Stmt> reachable = computeReachableStmt(cfg);
         for(Stmt stmt: cfg) {
+            if(cfg.isEntry(stmt) || cfg.isExit(stmt))
+                continue;
+            if(!reachable.contains(stmt)) {
+                deadCode.add(stmt);
+                continue;
+            }
+            // Check dead assign
             if(stmt.getDef().isEmpty())
                 continue;
             Var def = (Var)stmt.getDef().get();
@@ -80,6 +88,21 @@ public class DeadCodeDetection extends MethodAnalysis {
         }
         // Your task is to recognize dead code in ir and add it to deadCode
         return deadCode;
+    }
+    Set<Stmt> computeReachableStmt(CFG<Stmt> cfg) {
+        Set<Stmt> reach = new TreeSet<>(Comparator.comparing(Stmt::getIndex));
+        Stmt entry = cfg.getEntry();
+        computeReachableStmt(cfg, entry, reach);
+        return reach;
+    }
+    void computeReachableStmt(CFG<Stmt> cfg, Stmt node, Set<Stmt> reach) {
+        reach.add(node);
+        Set<Edge<Stmt>> outEdges = cfg.getOutEdgesOf(node);
+        for(Edge<Stmt> outEdge : outEdges) {
+            if(outEdge.getKind() == Edge.Kind.RETURN)
+                continue;
+            computeReachableStmt(cfg, outEdge.getTarget(), reach);
+        }
     }
 
     /**
