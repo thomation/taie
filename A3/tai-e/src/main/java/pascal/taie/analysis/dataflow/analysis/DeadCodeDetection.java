@@ -99,7 +99,7 @@ public class DeadCodeDetection extends MethodAnalysis {
         if (node instanceof If) {
             handleIfStmt(cfg, (If) node, constants, reach);
         } else if (node instanceof SwitchStmt) {
-
+            handleSwitchStmt(cfg, (SwitchStmt)node, constants, reach);
         } else {
             handleNormalStmt(cfg, node, constants, reach);
         }
@@ -137,6 +137,30 @@ public class DeadCodeDetection extends MethodAnalysis {
         if (v != null && v.isConstant())
             return Optional.of(v);
         return Optional.ofNullable(null);
+    }
+    void handleSwitchStmt(CFG<Stmt> cfg, SwitchStmt node, DataflowResult<Stmt, CPFact> constants, Set<Stmt> reach) {
+        CPFact constantsResult = constants.getResult(node);
+        Var var = node.getVar();
+        Optional<Value> v = checkVarConst(var, constantsResult);
+        Set<Edge<Stmt>> outEdges = cfg.getOutEdgesOf(node);
+        int i = -1;
+        boolean match = false;
+        for (Edge<Stmt> outEdge : outEdges) {
+            i ++;
+            if(v.isPresent()) {
+                if(outEdge.getKind() == Edge.Kind.SWITCH_CASE) {
+                    Integer c = node.getCaseValues().get(i);
+                    if(c != v.get().getConstant())
+                        continue;
+                    match = true;
+                }
+                if(outEdge.getKind() == Edge.Kind.SWITCH_DEFAULT) {
+                    if(match)
+                        continue;
+                }
+                computeReachableStmt(cfg, outEdge.getTarget(), constants, reach);
+            }
+        }
     }
 
     void handleNormalStmt(CFG<Stmt> cfg, Stmt node, DataflowResult<Stmt, CPFact> constants, Set<Stmt> reach) {
