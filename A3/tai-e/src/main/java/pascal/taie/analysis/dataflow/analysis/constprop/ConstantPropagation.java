@@ -199,7 +199,7 @@ public class ConstantPropagation extends
         return Value.makeConstant(ret);
     }
 
-    static Value evaluateConditionExp(ConditionExp exp, Value v1, Value v2) {
+    public static Value evaluateConditionExp(ConditionExp exp, Value v1, Value v2) {
         boolean ret = false;
         int left = v1.getConstant();
         int right = v2.getConstant();
