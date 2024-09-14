@@ -60,19 +60,23 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
 
     @Override
     protected void doSolveBackward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
-        boolean change = true;
-        while(change) {
-            change = false;
-            for (Node node : cfg) {
-                if (cfg.isExit(node))
-                    continue;
-                Fact out = analysis.newInitialFact();
-                for (Node succ : cfg.getSuccsOf(node)) {
-                    analysis.meetInto(result.getInFact(succ), out);
+        List<Node> worklist = new LinkedList<>();
+        for(Node node : cfg) {
+            if(cfg.isExit(node))
+                continue;
+            worklist.add(node);
+        }
+        while (!worklist.isEmpty()) {
+            Node node = worklist.remove(0);
+            Fact out = analysis.newInitialFact();
+            for (Node succ : cfg.getSuccsOf(node)) {
+                analysis.meetInto(result.getInFact(succ), out);
+            }
+            result.setOutFact(node, out);
+            if(analysis.transferNode(node, result.getInFact(node), result.getOutFact(node))) {
+                for(Node pre: cfg.getPredsOf(node)) {
+                    worklist.add(pre);
                 }
-                result.setOutFact(node, out);
-                if(analysis.transferNode(node, result.getInFact(node), result.getOutFact(node)))
-                    change = true;
             }
         }
     }
