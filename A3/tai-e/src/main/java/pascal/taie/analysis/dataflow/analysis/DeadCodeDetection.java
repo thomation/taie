@@ -95,6 +95,9 @@ public class DeadCodeDetection extends MethodAnalysis {
     }
 
     void computeReachableStmt(CFG<Stmt> cfg, Stmt node, DataflowResult<Stmt, CPFact> constants, Set<Stmt> reach) {
+        // Caused by goto.
+        if(reach.contains(node))
+            return;
         reach.add(node);
         if (node instanceof If) {
             handleIfStmt(cfg, (If) node, constants, reach);
