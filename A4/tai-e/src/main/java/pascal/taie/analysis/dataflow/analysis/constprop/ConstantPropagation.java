@@ -26,19 +26,14 @@ import pascal.taie.analysis.dataflow.analysis.AbstractDataflowAnalysis;
 import pascal.taie.analysis.graph.cfg.CFG;
 import pascal.taie.config.AnalysisConfig;
 import pascal.taie.ir.IR;
-import pascal.taie.ir.exp.ArithmeticExp;
-import pascal.taie.ir.exp.BinaryExp;
-import pascal.taie.ir.exp.BitwiseExp;
-import pascal.taie.ir.exp.ConditionExp;
-import pascal.taie.ir.exp.Exp;
-import pascal.taie.ir.exp.IntLiteral;
-import pascal.taie.ir.exp.ShiftExp;
-import pascal.taie.ir.exp.Var;
+import pascal.taie.ir.exp.*;
 import pascal.taie.ir.stmt.DefinitionStmt;
 import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.language.type.PrimitiveType;
 import pascal.taie.language.type.Type;
 import pascal.taie.util.AnalysisException;
+
+import java.util.List;
 
 public class ConstantPropagation extends
         AbstractDataflowAnalysis<Stmt, CPFact> {
@@ -56,33 +51,62 @@ public class ConstantPropagation extends
 
     @Override
     public CPFact newBoundaryFact(CFG<Stmt> cfg) {
-        // TODO - finish me
-        return null;
+        // TODO:  param should not be nac!
+        CPFact ret = new CPFact();
+        List<Var> params = cfg.getIR().getParams();
+        if (params != null && !params.isEmpty()) {
+            for (Var param : params) {
+                ret.update(param, Value.getNAC());
+            }
+        }
+        return ret;
     }
 
     @Override
     public CPFact newInitialFact() {
-        // TODO - finish me
-        return null;
+        return new CPFact();
     }
 
     @Override
     public void meetInto(CPFact fact, CPFact target) {
-        // TODO - finish me
+        for (Var k : fact.keySet()) {
+            Value s = fact.get(k);
+            Value t = target.get(k);
+            Value v = meetValue(s, t);
+            target.update(k, v);
+        }
     }
 
     /**
      * Meets two Values.
      */
     public Value meetValue(Value v1, Value v2) {
-        // TODO - finish me
-        return null;
+        if (v1.isNAC() || v2.isNAC())
+            return Value.getNAC();
+        if (v1.isUndef())
+            return v2;
+        if (v2.isUndef())
+            return v1;
+        if (!v1.equals(v2))
+            return Value.getNAC();
+
+        return v1;
     }
 
     @Override
     public boolean transferNode(Stmt stmt, CPFact in, CPFact out) {
-        // TODO - finish me
-        return false;
+        CPFact newOut = in.copy();
+        if (!stmt.getDef().isEmpty()) {
+            Var def = (Var) stmt.getDef().get();
+            for (Exp exp : stmt.getUses()) {
+                Value newValue = evaluate(exp, in);
+                newOut.update(def, newValue);
+            }
+        }
+        boolean change = !newOut.equals(out);
+        out.clear();
+        out.copyFrom(newOut);
+        return change;
     }
 
     /**
@@ -111,7 +135,94 @@ public class ConstantPropagation extends
      * @return the resulting {@link Value}
      */
     public static Value evaluate(Exp exp, CPFact in) {
-        // TODO - finish me
-        return null;
+        if (exp instanceof IntLiteral cv) {
+            return Value.makeConstant(cv.getValue());
+        }
+        if (exp instanceof Var var) {
+            return in.get(var);
+        }
+        if (exp instanceof BinaryExp be) {
+            return evaluateBinaryExp(be, in);
+        }
+        if (exp instanceof InvokeVirtual iv) {
+            return Value.getNAC();
+        }
+        return Value.getUndef();
+    }
+
+    static Value evaluateBinaryExp(BinaryExp exp, CPFact in) {
+        Var op1 = exp.getOperand1();
+        Var op2 = exp.getOperand2();
+        Value v1 = in.get(op1);
+        Value v2 = in.get(op2);
+        if (v1.isConstant() && v2.isConstant()) {
+            if (exp instanceof ArithmeticExp abe) {
+                return evaluateArithmeticExp(abe, v1, v2);
+            } else if (exp instanceof BitwiseExp bwe) {
+                return evaluateBitwiseExp(bwe, v1, v2);
+            } else if (exp instanceof ConditionExp ce) {
+                return evaluateConditionExp(ce, v1, v2);
+            } else if (exp instanceof ShiftExp se) {
+                return evaluateShiftExp(se, v1, v2);
+            }
+            throw new UnsupportedOperationException();
+        }
+        if (v1.isNAC() || v2.isNAC())
+            return Value.getNAC();
+        return Value.getUndef();
+    }
+
+    static Value evaluateArithmeticExp(ArithmeticExp exp, Value v1, Value v2) {
+        int ret = 0;
+        int left = v1.getConstant();
+        int right = v2.getConstant();
+        switch (exp.getOperator()) {
+            case ADD -> ret = left + right;
+            case SUB -> ret = left - right;
+            case MUL -> ret = left * right;
+            case DIV -> ret = left / right;
+            case REM -> ret = left % right;
+        }
+        return Value.makeConstant(ret);
+    }
+
+    static Value evaluateBitwiseExp(BitwiseExp exp, Value v1, Value v2) {
+        int ret = 0;
+        int left = v1.getConstant();
+        int right = v2.getConstant();
+        switch (exp.getOperator()) {
+            case AND -> ret = left & right;
+            case OR -> ret = left | right;
+            case XOR -> ret = left ^ right;
+        }
+        return Value.makeConstant(ret);
+    }
+
+    public static Value evaluateConditionExp(ConditionExp exp, Value v1, Value v2) {
+        boolean ret = false;
+        int left = v1.getConstant();
+        int right = v2.getConstant();
+        switch (exp.getOperator()) {
+            case EQ -> ret = left == right;
+            case NE -> ret = left != right;
+            case LT -> ret = left < right;
+            case GT -> ret = left > right;
+            case LE -> ret = left <= right;
+            case GE -> ret = left >= right;
+        }
+        int value = ret ? 1 : 0;
+        return Value.makeConstant(value);
+    }
+
+    static Value evaluateShiftExp(ShiftExp exp, Value v1, Value v2) {
+        int ret = 0;
+        int left = v1.getConstant();
+        int right = v2.getConstant();
+        switch (exp.getOperator()) {
+            case SHL -> ret = left << right;
+            case SHR -> ret = left >> right;
+            case USHR -> ret = left >>> right;
+        }
+        return Value.makeConstant(ret);
     }
 }
