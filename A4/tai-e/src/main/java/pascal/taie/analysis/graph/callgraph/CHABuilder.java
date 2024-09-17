@@ -50,14 +50,14 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
         callGraph.addEntryMethod(entry);
         List<JMethod> worklist = new LinkedList<>();
         worklist.add(entry);
-        while(!worklist.isEmpty()) {
+        while (!worklist.isEmpty()) {
             JMethod m = worklist.remove(0);
-            if(callGraph.contains(m))
+            if (callGraph.contains(m))
                 continue;
             callGraph.addReachableMethod(m);
-            for(Invoke cs : callGraph.getCallSitesIn(m)) {
+            for (Invoke cs : callGraph.getCallSitesIn(m)) {
                 Set<JMethod> ms = resolve(cs);
-                for(JMethod m1 : ms) {
+                for (JMethod m1 : ms) {
                     callGraph.addEdge(new Edge<Invoke, JMethod>(CallGraphs.getCallKind(cs), cs, m1));
                     worklist.add(m1);
                 }
@@ -78,17 +78,16 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
                 break;
             }
             case SPECIAL -> {
-                // TODO: not declaring class but the real class of the method
                 JClass c = m.getDeclaringClass();
                 ret.add(dispatch(c, m.getSubsignature()));
                 break;
             }
             case VIRTUAL -> {
-                JClass c = m.getDeclaringClass();
-                ret.add(dispatch(c, m.getSubsignature()));
-                // TODO: not only direct subclass
-                for(JClass sub : hierarchy.getDirectSubclassesOf(c))
-                    ret.add(dispatch(sub, m.getSubsignature()));
+                Set<JClass> classes = new HashSet<>();
+                JClass me = m.getDeclaringClass();
+                getAllSubclassesOf(me, classes);
+                for (JClass c : classes)
+                    ret.add(dispatch(c, m.getSubsignature()));
             }
             default -> {
                 throw new RuntimeException("No case:" + CallGraphs.getCallKind(callSite));
@@ -96,6 +95,14 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
         }
 
         return ret;
+    }
+
+    private void getAllSubclassesOf(JClass jclass, Set<JClass> ret) {
+        if (ret.contains(jclass))
+            return;
+        ret.add(jclass);
+        for (JClass sub : hierarchy.getDirectSubclassesOf(jclass))
+            getAllSubclassesOf(sub, ret);
     }
 
     /**
