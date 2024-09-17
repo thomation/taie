@@ -30,9 +30,7 @@ import pascal.taie.language.classes.JClass;
 import pascal.taie.language.classes.JMethod;
 import pascal.taie.language.classes.Subsignature;
 
-import java.util.ArrayDeque;
-import java.util.Queue;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Implementation of the CHA algorithm.
@@ -50,7 +48,21 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
     private CallGraph<Invoke, JMethod> buildCallGraph(JMethod entry) {
         DefaultCallGraph callGraph = new DefaultCallGraph();
         callGraph.addEntryMethod(entry);
-        // TODO - finish me
+        List<JMethod> worklist = new LinkedList<>();
+        worklist.add(entry);
+        while(!worklist.isEmpty()) {
+            JMethod m = worklist.remove(0);
+            if(callGraph.contains(m))
+                continue;
+            callGraph.addReachableMethod(m);
+            for(Invoke cs : callGraph.getCallSitesIn(m)) {
+                Set<JMethod> ms = resolve(cs);
+                for(JMethod m1 : ms) {
+                    callGraph.addEdge(new Edge<Invoke, JMethod>(CallGraphs.getCallKind(cs), cs, m1));
+                    worklist.add(m1);
+                }
+            }
+        }
         return callGraph;
     }
 
@@ -58,8 +70,32 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
      * Resolves call targets (callees) of a call site via CHA.
      */
     private Set<JMethod> resolve(Invoke callSite) {
-        // TODO - finish me
-        return null;
+        Set<JMethod> ret = new HashSet<>();
+        MethodRef m = callSite.getMethodRef();
+        switch (CallGraphs.getCallKind(callSite)) {
+            case STATIC -> {
+                ret.add(hierarchy.getJREMethod(m.toString()));
+                break;
+            }
+            case SPECIAL -> {
+                // TODO: not declaring class but the real class of the method
+                JClass c = m.getDeclaringClass();
+                ret.add(dispatch(c, m.getSubsignature()));
+                break;
+            }
+            case VIRTUAL -> {
+                JClass c = m.getDeclaringClass();
+                ret.add(dispatch(c, m.getSubsignature()));
+                // TODO: not only direct subclass
+                for(JClass sub : hierarchy.getDirectSubclassesOf(c))
+                    ret.add(dispatch(sub, m.getSubsignature()));
+            }
+            default -> {
+                throw new RuntimeException("No case:" + CallGraphs.getCallKind(callSite));
+            }
+        }
+
+        return ret;
     }
 
     /**
@@ -69,7 +105,12 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
      * can be found.
      */
     private JMethod dispatch(JClass jclass, Subsignature subsignature) {
-        // TODO - finish me
-        return null;
+        JMethod method = jclass.getDeclaredMethod(subsignature);
+        if (method != null && !method.isAbstract())
+            return method;
+        if (jclass.getSuperClass() != null) {
+            method = dispatch(jclass.getSuperClass(), subsignature);
+        }
+        return method;
     }
 }
