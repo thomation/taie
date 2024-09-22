@@ -51,14 +51,7 @@ public class ConstantPropagation extends
 
     @Override
     public CPFact newBoundaryFact(CFG<Stmt> cfg) {
-        // TODO:  param should not be nac!
         CPFact ret = new CPFact();
-        List<Var> params = cfg.getIR().getParams();
-        if (params != null && !params.isEmpty()) {
-            for (Var param : params) {
-                ret.update(param, Value.getNAC());
-            }
-        }
         return ret;
     }
 
