@@ -72,25 +72,31 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
     private Set<JMethod> resolve(Invoke callSite) {
         Set<JMethod> ret = new HashSet<>();
         MethodRef m = callSite.getMethodRef();
-        switch (CallGraphs.getCallKind(callSite)) {
-            case STATIC -> {
+        CallKind kind = CallGraphs.getCallKind(callSite);
+        switch (kind) {
+            case STATIC: {
                 ret.add(hierarchy.getJREMethod(m.toString()));
                 break;
             }
-            case SPECIAL -> {
+            case SPECIAL: {
                 JClass c = m.getDeclaringClass();
                 ret.add(dispatch(c, m.getSubsignature()));
                 break;
             }
-            case VIRTUAL -> {
+            case INTERFACE:
+            case VIRTUAL: {
                 Set<JClass> classes = new HashSet<>();
                 JClass me = m.getDeclaringClass();
                 getAllSubclassesOf(me, classes);
-                for (JClass c : classes)
-                    ret.add(dispatch(c, m.getSubsignature()));
+                for (JClass c : classes) {
+                    JMethod d = dispatch(c, m.getSubsignature());
+                    if (d != null)
+                        ret.add(d);
+                }
+                break;
             }
-            default -> {
-                throw new RuntimeException("No case:" + CallGraphs.getCallKind(callSite));
+            default: {
+                throw new RuntimeException("No case:" + kind);
             }
         }
 
@@ -101,8 +107,13 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
         if (ret.contains(jclass))
             return;
         ret.add(jclass);
-        for (JClass sub : hierarchy.getDirectSubclassesOf(jclass))
-            getAllSubclassesOf(sub, ret);
+        if (jclass.isInterface()) {
+            for (JClass sub : hierarchy.getDirectImplementorsOf(jclass))
+                getAllSubclassesOf(sub, ret);
+        } else {
+            for (JClass sub : hierarchy.getDirectSubclassesOf(jclass))
+                getAllSubclassesOf(sub, ret);
+        }
     }
 
     /**
