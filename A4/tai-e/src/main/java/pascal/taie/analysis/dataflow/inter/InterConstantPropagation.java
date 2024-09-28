@@ -72,18 +72,22 @@ public class InterConstantPropagation extends
 
     @Override
     public void meetInto(CPFact fact, CPFact target) {
+//        System.out.printf("meetInfo from %s to %s\n", fact.toString(), target.toString());
         cp.meetInto(fact, target);
     }
 
     @Override
     protected boolean transferCallNode(Stmt stmt, CPFact in, CPFact out) {
-        boolean change = false;
+        CPFact newOut = in.copy();
         for(ICFGEdge<Stmt> edge : icfg.getInEdgesOf(stmt)) {
             CPFact te = transferEdge(edge, out);
             for(Var k: te.keySet()) {
-                change |= in.update(k, te.get(k));
+                newOut.update(k, te.get(k));
             }
         }
+        boolean change = !newOut.equals(out);
+        out.clear();
+        out.copyFrom(newOut);
         return change;
     }
 
@@ -110,9 +114,11 @@ public class InterConstantPropagation extends
     protected CPFact transferCallEdge(CallEdge<Stmt> edge, CPFact callSiteOut) {
         CPFact ret = new CPFact();
         JMethod m = edge.getCallee();
-        for(Var v :m.getIR().getParams()) {
-            // TODO: How to get arg name? Try invokeexp?
-            ret.update(v, callSiteOut.get(v));
+        Invoke source = (Invoke) edge.getSource();
+        for(int i = 0; i < m.getIR().getParams().size(); i ++) {
+            Var v = m.getIR().getParam(i);
+            Var a = source.getInvokeExp().getArg(i);
+            ret.update(v, callSiteOut.get(a));
         }
         return ret;
     }

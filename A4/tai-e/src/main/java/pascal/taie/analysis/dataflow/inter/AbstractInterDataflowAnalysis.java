@@ -73,11 +73,13 @@ public abstract class AbstractInterDataflowAnalysis<Method, Node, Fact>
      */
     @Override
     public boolean transferNode(Node node, Fact in, Fact out) {
-        if (icfg.isCallSite(node)) {
-            return transferCallNode(node, in, out);
-        } else {
-            return transferNonCallNode(node, in, out);
-        }
+//        if (icfg.isCallSite(node)) {
+            boolean change = transferNonCallNode(node, in, out);
+            change |= transferCallNode(node, in, out);
+            return change;
+//        } else {
+//            return transferNonCallNode(node, in, out);
+//        }
     }
 
     /**
