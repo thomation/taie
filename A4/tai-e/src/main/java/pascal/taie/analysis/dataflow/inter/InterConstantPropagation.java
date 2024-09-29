@@ -78,22 +78,16 @@ public class InterConstantPropagation extends
 
     @Override
     protected boolean transferCallNode(Stmt stmt, CPFact in, CPFact out) {
-        CPFact newOut = in.copy();
-        for(ICFGEdge<Stmt> edge : icfg.getInEdgesOf(stmt)) {
-            CPFact te = transferEdge(edge, out);
-            for(Var k: te.keySet()) {
-                newOut.update(k, te.get(k));
-            }
-        }
-        boolean change = !newOut.equals(out);
-        out.clear();
-        out.copyFrom(newOut);
-        return change;
+        return cp.transferNode(stmt, in, out);
     }
 
     @Override
     protected boolean transferNonCallNode(Stmt stmt, CPFact in, CPFact out) {
-        return cp.transferNode(stmt, in, out);
+        CPFact newOut = in.copy();
+        for(ICFGEdge<Stmt> edge : icfg.getInEdgesOf(stmt)) {
+            newOut = transferEdge(edge, newOut);
+        }
+        return  cp.transferNode(stmt, newOut, out);
     }
 
     @Override
@@ -125,12 +119,13 @@ public class InterConstantPropagation extends
 
     @Override
     protected CPFact transferReturnEdge(ReturnEdge<Stmt> edge, CPFact returnOut) {
-        CPFact ret = new CPFact();
+        CPFact ret = returnOut.copy();
         Optional<LValue> def = edge.getCallSite().getDef();
         if(def.isPresent()) {
             for(Var v: edge.getReturnVars()) {
                 ret.update((Var)def.get(), returnOut.get(v));
-                break; // TODO: why return multiple values?
+                ret.update(v, Value.getUndef());
+                break;
             }
         }
         return ret;
