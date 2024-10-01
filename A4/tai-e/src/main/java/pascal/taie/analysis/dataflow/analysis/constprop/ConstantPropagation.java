@@ -90,10 +90,12 @@ public class ConstantPropagation extends
     public boolean transferNode(Stmt stmt, CPFact in, CPFact out) {
         CPFact newOut = in.copy();
         if (!stmt.getDef().isEmpty()) {
-            Var def = (Var) stmt.getDef().get();
-            for (Exp exp : stmt.getUses()) {
-                Value newValue = evaluate(exp, in);
-                newOut.update(def, newValue);
+            LValue def = stmt.getDef().get();
+            if(def instanceof Var var) {
+                for (Exp exp : stmt.getUses()) {
+                    Value newValue = evaluate(exp, in);
+                    newOut.update(var, newValue);
+                }
             }
         }
         boolean change = !newOut.equals(out);
@@ -137,7 +139,10 @@ public class ConstantPropagation extends
         if (exp instanceof BinaryExp be) {
             return evaluateBinaryExp(be, in);
         }
-        if (exp instanceof InvokeVirtual iv) {
+        if (exp instanceof InvokeVirtual) {
+            return Value.getNAC();
+        }
+        if (exp instanceof InstanceFieldAccess) {
             return Value.getNAC();
         }
         return Value.getUndef();
