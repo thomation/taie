@@ -84,11 +84,7 @@ public class InterConstantPropagation extends
 
     @Override
     protected boolean transferNonCallNode(Stmt stmt, CPFact in, CPFact out) {
-        CPFact newOut = in.copy();
-        for(ICFGEdge<Stmt> edge : icfg.getInEdgesOf(stmt)) {
-            newOut = transferEdge(edge, newOut);
-        }
-        return  cp.transferNode(stmt, newOut, out);
+        return cp.transferNode(stmt, in, out);
     }
 
     @Override

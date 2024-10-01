@@ -93,15 +93,7 @@ class InterSolver<Method, Node, Fact> {
             Node node = worklist.remove(0);
             Fact in = analysis.newInitialFact();
             for(ICFGEdge<Node> edge : icfg.getInEdgesOf(node) ) {
-                if (edge instanceof NormalEdge) {
-                    analysis.meetInto(result.getOutFact(edge.getSource()), in);
-                } else if (edge instanceof CallToReturnEdge) {
-                    analysis.meetInto(result.getOutFact(edge.getSource()), in);
-                } else if (edge instanceof CallEdge) {
-                    analysis.meetInto(result.getOutFact(edge.getSource()), in);
-                } else {
-                    analysis.meetInto(result.getOutFact(edge.getSource()), in);
-                }
+                analysis.meetInto(analysis.transferEdge(edge, result.getOutFact(edge.getSource())), in);
             }
             result.setInFact(node, in);
             if (analysis.transferNode(node, result.getInFact(node), result.getOutFact(node))) {
