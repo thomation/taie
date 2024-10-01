@@ -22,6 +22,7 @@
 
 package pascal.taie.analysis.dataflow.inter;
 
+import org.checkerframework.checker.units.qual.C;
 import pascal.taie.analysis.dataflow.analysis.constprop.CPFact;
 import pascal.taie.analysis.dataflow.analysis.constprop.ConstantPropagation;
 import pascal.taie.analysis.dataflow.analysis.constprop.Value;
@@ -119,7 +120,7 @@ public class InterConstantPropagation extends
 
     @Override
     protected CPFact transferReturnEdge(ReturnEdge<Stmt> edge, CPFact returnOut) {
-        CPFact ret = returnOut.copy();
+        CPFact ret = new CPFact();
         Optional<LValue> def = edge.getCallSite().getDef();
         if(def.isPresent()) {
             for(Var v: edge.getReturnVars()) {
