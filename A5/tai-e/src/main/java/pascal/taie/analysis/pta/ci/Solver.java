@@ -34,14 +34,7 @@ import pascal.taie.analysis.pta.core.heap.Obj;
 import pascal.taie.ir.exp.InvokeExp;
 import pascal.taie.ir.exp.Var;
 import pascal.taie.ir.proginfo.MethodRef;
-import pascal.taie.ir.stmt.Copy;
-import pascal.taie.ir.stmt.Invoke;
-import pascal.taie.ir.stmt.LoadArray;
-import pascal.taie.ir.stmt.LoadField;
-import pascal.taie.ir.stmt.New;
-import pascal.taie.ir.stmt.StmtVisitor;
-import pascal.taie.ir.stmt.StoreArray;
-import pascal.taie.ir.stmt.StoreField;
+import pascal.taie.ir.stmt.*;
 import pascal.taie.language.classes.ClassHierarchy;
 import pascal.taie.language.classes.JMethod;
 import pascal.taie.util.AnalysisException;
@@ -96,15 +89,28 @@ class Solver {
      * Processes new reachable method.
      */
     private void addReachable(JMethod method) {
-        // TODO - finish me
+        // LAB5
+        if(callGraph.contains(method))
+            return;
+        callGraph.addReachableMethod(method);
+        for(Stmt stmt : method.getIR().getStmts()) {
+            stmt.accept(stmtProcessor);
+        }
     }
 
     /**
      * Processes statements in new reachable methods.
      */
     private class StmtProcessor implements StmtVisitor<Void> {
-        // TODO - if you choose to implement addReachable()
-        //  via visitor pattern, then finish me
+        // LAB5
+        public Void visit(New stmt) {
+            Pointer p = pointerFlowGraph.getVarPtr(stmt.getLValue());
+            PointsToSet set = new PointsToSet();
+            Obj o = heapModel.getObj(stmt);
+            set.addObject(o);
+            workList.addEntry(p, set);
+            return null;
+        }
     }
 
     /**
