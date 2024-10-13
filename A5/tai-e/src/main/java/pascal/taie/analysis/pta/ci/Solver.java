@@ -25,10 +25,7 @@ package pascal.taie.analysis.pta.ci;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import pascal.taie.World;
-import pascal.taie.analysis.graph.callgraph.CallGraphs;
-import pascal.taie.analysis.graph.callgraph.CallKind;
-import pascal.taie.analysis.graph.callgraph.DefaultCallGraph;
-import pascal.taie.analysis.graph.callgraph.Edge;
+import pascal.taie.analysis.graph.callgraph.*;
 import pascal.taie.analysis.pta.core.heap.HeapModel;
 import pascal.taie.analysis.pta.core.heap.Obj;
 import pascal.taie.ir.exp.InvokeExp;
@@ -166,6 +163,7 @@ class Solver {
                         Pointer of = pointerFlowGraph.getInstanceField(o, f);
                         addPFGEdge(of, y);
                     }
+                    processCall(x, o);
                 }
             }
         }
@@ -193,7 +191,25 @@ class Solver {
      * @param recv a new discovered object pointed by the variable.
      */
     private void processCall(Var var, Obj recv) {
-        // TODO - finish me
+        // LAB5
+        for(Invoke invoke : var.getInvokes()) {
+            JMethod m = resolveCallee(recv, invoke);
+            Pointer tp = pointerFlowGraph.getVarPtr(m.getIR().getThis());
+            workList.addEntry(tp, new PointsToSet(recv));
+            if(callGraph.addEdge(new Edge<Invoke, JMethod>(CallGraphs.getCallKind(invoke), invoke, m))) {
+                addReachable(m);
+                for(int i = 0; i < m.getIR().getParams().size(); i ++) {
+                    Var p = m.getIR().getParam(i);
+                    Var a = invoke.getInvokeExp().getArg(i);
+                    addPFGEdge(pointerFlowGraph.getVarPtr(a), pointerFlowGraph.getVarPtr(p));
+                }
+                for(Var mr : m.getIR().getReturnVars()) {
+                    Var r = invoke.getResult();
+                    addPFGEdge(pointerFlowGraph.getVarPtr(mr), pointerFlowGraph.getVarPtr(r));
+                }
+            }
+
+        }
     }
 
     /**
