@@ -141,7 +141,17 @@ class Solver {
      * Processes work-list entries until the work-list is empty.
      */
     private void analyze() {
-        // TODO - finish me
+        // LAB5
+        while (!workList.isEmpty()) {
+            WorkList.Entry entry = workList.pollEntry();
+            PointsToSet delta = new PointsToSet();
+            Pointer p = entry.pointer();
+            for(Obj obj: entry.pointsToSet()) {
+                if(!p.getPointsToSet().contains(obj))
+                    delta.addObject(obj);
+            }
+            propagate(p, delta);
+        }
     }
 
     /**
@@ -149,7 +159,13 @@ class Solver {
      * returns the difference set of pointsToSet and pt(pointer).
      */
     private PointsToSet propagate(Pointer pointer, PointsToSet pointsToSet) {
-        // TODO - finish me
+        // LAB5
+        if(pointsToSet.isEmpty())
+            return null;
+        for(Obj obj: pointsToSet)
+            pointer.getPointsToSet().addObject(obj);
+        for(Pointer t: pointerFlowGraph.getSuccsOf(pointer))
+            workList.addEntry(t, pointsToSet);
         return null;
     }
 
