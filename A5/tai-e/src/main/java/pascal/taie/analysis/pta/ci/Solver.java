@@ -117,13 +117,24 @@ class Solver {
             addPFGEdge(right, left);
             return null;
         }
+        public Void visit(Invoke stmt) {
+            if(stmt.isStatic()) {
+
+            }
+            return null;
+        }
     }
 
     /**
      * Adds an edge "source -> target" to the PFG.
      */
     private void addPFGEdge(Pointer source, Pointer target) {
-        // TODO - finish me
+        // LAB5
+        if(pointerFlowGraph.addEdge(source, target)) {
+            PointsToSet set = source.getPointsToSet();
+            if(set != null && !set.isEmpty())
+                workList.addEntry(target, set);
+        }
     }
 
     /**
