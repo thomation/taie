@@ -111,9 +111,9 @@ class Solver {
             workList.addEntry(p, set);
             return null;
         }
-        public Void visit(AssignLiteral stmt) {
+        public Void visit(Copy stmt) {
             Pointer left = pointerFlowGraph.getVarPtr(stmt.getLValue());
-            Pointer right = pointerFlowGraph.getVarPtr((Var)stmt.getRValue());
+            Pointer right = pointerFlowGraph.getVarPtr(stmt.getRValue());
             addPFGEdge(right, left);
             return null;
         }
