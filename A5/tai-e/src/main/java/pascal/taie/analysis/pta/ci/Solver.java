@@ -36,11 +36,11 @@ import pascal.taie.ir.exp.Var;
 import pascal.taie.ir.proginfo.MethodRef;
 import pascal.taie.ir.stmt.*;
 import pascal.taie.language.classes.ClassHierarchy;
+import pascal.taie.language.classes.JField;
 import pascal.taie.language.classes.JMethod;
 import pascal.taie.util.AnalysisException;
 import pascal.taie.language.type.Type;
 
-import java.util.List;
 
 class Solver {
 
@@ -145,12 +145,29 @@ class Solver {
         while (!workList.isEmpty()) {
             WorkList.Entry entry = workList.pollEntry();
             PointsToSet delta = new PointsToSet();
-            Pointer p = entry.pointer();
+            Pointer n = entry.pointer();
             for(Obj obj: entry.pointsToSet()) {
-                if(!p.getPointsToSet().contains(obj))
+                if(!n.getPointsToSet().contains(obj))
                     delta.addObject(obj);
             }
-            propagate(p, delta);
+            propagate(n, delta);
+            if(n instanceof VarPtr) {
+                for(Obj o: delta) {
+                    Var x = ((VarPtr) n).getVar();
+                    for (StoreField sf : x.getStoreFields()) {
+                        Pointer y = pointerFlowGraph.getVarPtr(sf.getRValue());
+                        JField f = sf.getFieldRef().getDeclaringClass().getDeclaredField(sf.toString());
+                        Pointer of = pointerFlowGraph.getInstanceField(o, f);
+                        addPFGEdge(y, of);
+                    }
+                    for(LoadField lf: x.getLoadFields()) {
+                        Pointer y = pointerFlowGraph.getVarPtr(lf.getLValue());
+                        JField f = lf.getFieldRef().getDeclaringClass().getDeclaredField(lf.toString());
+                        Pointer of = pointerFlowGraph.getInstanceField(o, f);
+                        addPFGEdge(of, y);
+                    }
+                }
+            }
         }
     }
 
