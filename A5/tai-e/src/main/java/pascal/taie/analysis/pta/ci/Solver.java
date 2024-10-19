@@ -133,7 +133,19 @@ class Solver {
         }
         public Void visit(Invoke stmt) {
             if(stmt.isStatic()) {
-
+                JMethod m = stmt.getMethodRef().resolve();
+                if(callGraph.addEdge(new Edge<Invoke, JMethod>(CallGraphs.getCallKind(stmt), stmt, m))) {
+                    addReachable(m);
+                    for(int i = 0; i < m.getIR().getParams().size(); i ++) {
+                        Var p = m.getIR().getParam(i);
+                        Var a = stmt.getInvokeExp().getArg(i);
+                        addPFGEdge(pointerFlowGraph.getVarPtr(a), pointerFlowGraph.getVarPtr(p));
+                    }
+                    for(Var mr : m.getIR().getReturnVars()) {
+                        Var r = stmt.getResult();
+                        addPFGEdge(pointerFlowGraph.getVarPtr(mr), pointerFlowGraph.getVarPtr(r));
+                    }
+                }
             }
             return null;
         }
