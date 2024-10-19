@@ -153,13 +153,13 @@ class Solver {
                     Var x = ((VarPtr) n).getVar();
                     for (StoreField sf : x.getStoreFields()) {
                         Pointer y = pointerFlowGraph.getVarPtr(sf.getRValue());
-                        JField f = sf.getFieldRef().getDeclaringClass().getDeclaredField(sf.toString());
+                        JField f = sf.getFieldRef().resolve();
                         Pointer of = pointerFlowGraph.getInstanceField(o, f);
                         addPFGEdge(y, of);
                     }
                     for(LoadField lf: x.getLoadFields()) {
                         Pointer y = pointerFlowGraph.getVarPtr(lf.getLValue());
-                        JField f = lf.getFieldRef().getDeclaringClass().getDeclaredField(lf.toString());
+                        JField f = lf.getFieldRef().resolve();
                         Pointer of = pointerFlowGraph.getInstanceField(o, f);
                         addPFGEdge(of, y);
                     }
