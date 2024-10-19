@@ -114,6 +114,23 @@ class Solver {
             addPFGEdge(right, left);
             return null;
         }
+        public Void visit(LoadField stmt) {
+            if(stmt.isStatic()) {
+                Pointer left = pointerFlowGraph.getVarPtr(stmt.getLValue());
+                Pointer right = pointerFlowGraph.getStaticField(stmt.getFieldRef().resolve());
+                addPFGEdge(right, left);
+            }
+            return null;
+        }
+
+        public Void visit(StoreField stmt) {
+            if(stmt.isStatic()) {
+                Pointer left = pointerFlowGraph.getStaticField(stmt.getFieldRef().resolve());
+                Pointer right = pointerFlowGraph.getVarPtr(stmt.getRValue());
+                addPFGEdge(right, left);
+            }
+            return null;
+        }
         public Void visit(Invoke stmt) {
             if(stmt.isStatic()) {
 
