@@ -38,6 +38,8 @@ import pascal.taie.language.classes.JMethod;
 import pascal.taie.util.AnalysisException;
 import pascal.taie.language.type.Type;
 
+import java.lang.reflect.Array;
+
 
 class Solver {
 
@@ -192,6 +194,16 @@ class Solver {
                         Pointer of = pointerFlowGraph.getInstanceField(o, f);
                         addPFGEdge(of, y);
                     }
+                    for (StoreArray sa : x.getStoreArrays()) {
+                        Pointer y = pointerFlowGraph.getVarPtr(sa.getRValue());
+                        ArrayIndex ai = pointerFlowGraph.getArrayIndex(o);
+                        addPFGEdge(y, ai);
+                    }
+                    for (LoadArray la : x.getLoadArrays()) {
+                        Pointer y = pointerFlowGraph.getVarPtr(la.getLValue());
+                        ArrayIndex ai = pointerFlowGraph.getArrayIndex(o);
+                        addPFGEdge(ai, y);
+                    }
                     processCall(x, o);
                 }
             }
@@ -234,7 +246,8 @@ class Solver {
                 }
                 for(Var mr : m.getIR().getReturnVars()) {
                     Var r = invoke.getResult();
-                    addPFGEdge(pointerFlowGraph.getVarPtr(mr), pointerFlowGraph.getVarPtr(r));
+                    if(r != null)
+                        addPFGEdge(pointerFlowGraph.getVarPtr(mr), pointerFlowGraph.getVarPtr(r));
                 }
             }
 
