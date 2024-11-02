@@ -50,14 +50,7 @@ import pascal.taie.analysis.pta.pts.PointsToSetFactory;
 import pascal.taie.config.AnalysisOptions;
 import pascal.taie.ir.exp.InvokeExp;
 import pascal.taie.ir.exp.Var;
-import pascal.taie.ir.stmt.Copy;
-import pascal.taie.ir.stmt.Invoke;
-import pascal.taie.ir.stmt.LoadArray;
-import pascal.taie.ir.stmt.LoadField;
-import pascal.taie.ir.stmt.New;
-import pascal.taie.ir.stmt.StmtVisitor;
-import pascal.taie.ir.stmt.StoreArray;
-import pascal.taie.ir.stmt.StoreField;
+import pascal.taie.ir.stmt.*;
 import pascal.taie.language.classes.JField;
 import pascal.taie.language.classes.JMethod;
 import pascal.taie.language.type.Type;
@@ -111,7 +104,14 @@ class Solver {
      * Processes new reachable context-sensitive method.
      */
     private void addReachable(CSMethod csMethod) {
-        // TODO - finish me
+        // LAB6
+        if(callGraph.contains(csMethod))
+            return;
+        callGraph.addReachableMethod(csMethod);
+        StmtProcessor stmtProcessor = new StmtProcessor(csMethod);
+        for(Stmt stmt : csMethod.getMethod().getIR().getStmts()) {
+            stmt.accept(stmtProcessor);
+        }
     }
 
     /**
@@ -127,9 +127,21 @@ class Solver {
             this.csMethod = csMethod;
             this.context = csMethod.getContext();
         }
-
-        // TODO - if you choose to implement addReachable()
-        //  via visitor pattern, then finish me
+        // LAB6
+        public Void visit(New stmt) {
+            Pointer p = csManager.getCSVar(context, stmt.getLValue());
+            Obj o = heapModel.getObj(stmt);
+            CSObj co = csManager.getCSObj(context, o);
+            PointsToSet set = PointsToSetFactory.make(co);
+            workList.addEntry(p, set);
+            return null;
+        }
+        public Void visit(Copy stmt) {
+            Pointer left = csManager.getCSVar(context, stmt.getLValue());
+            Pointer right = csManager.getCSVar(context, stmt.getRValue());
+            addPFGEdge(right, left);
+            return null;
+        }
     }
 
     /**
