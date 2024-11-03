@@ -223,7 +223,35 @@ class Solver {
      * @param recvObj set of new discovered objects pointed by the variable.
      */
     private void processCall(CSVar recv, CSObj recvObj) {
-        // TODO - finish me
+        // LAB6
+        Var var = recv.getVar();
+        for(Invoke invoke : var.getInvokes()) {
+            // dispatch m
+            JMethod m = resolveCallee(recvObj, invoke);
+            // select ct
+            Context c = recv.getContext();
+            CSCallSite csCallSite = csManager.getCSCallSite(c, invoke);
+            Context ct = contextSelector.selectContext(csCallSite, recvObj, m);
+            // handle this point
+            Pointer tp = csManager.getCSVar(ct, m.getIR().getThis());
+            workList.addEntry(tp, PointsToSetFactory.make(recvObj));
+            // l -> ct m
+            CSMethod csM = csManager.getCSMethod(ct, m);
+            if(callGraph.addEdge(new Edge<CSCallSite, CSMethod>(CallGraphs.getCallKind(invoke), csCallSite, csM))) {
+                addReachable(csM);
+                for(int i = 0; i < m.getIR().getParams().size(); i ++) {
+                    Var p = m.getIR().getParam(i);
+                    Var a = invoke.getInvokeExp().getArg(i);
+                    addPFGEdge(csManager.getCSVar(c, a), csManager.getCSVar(ct, p));
+                }
+                for(Var mr : m.getIR().getReturnVars()) {
+                    Var r = invoke.getResult();
+                    if(r != null)
+                        addPFGEdge(csManager.getCSVar(ct, mr), csManager.getCSVar(c, r));
+                }
+            }
+
+        }
     }
 
     /**
