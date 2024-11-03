@@ -158,6 +158,27 @@ class Solver {
             }
             return null;
         }
+        public Void visit(Invoke stmt) {
+            if(stmt.isStatic()) {
+                CSCallSite csCallSite = csManager.getCSCallSite(context, stmt);
+                JMethod m = stmt.getMethodRef().resolve();
+                Context ct = contextSelector.selectContext(csCallSite, m);
+                CSMethod csM = csManager.getCSMethod(ct, m);
+                if(callGraph.addEdge(new Edge<CSCallSite, CSMethod>(CallGraphs.getCallKind(stmt), csCallSite, csM))) {
+                    addReachable(csM);
+                    for(int i = 0; i < m.getIR().getParams().size(); i ++) {
+                        Var p = m.getIR().getParam(i);
+                        Var a = stmt.getInvokeExp().getArg(i);
+                        addPFGEdge(csManager.getCSVar(context, a), csManager.getCSVar(ct, p));
+                    }
+                    for(Var mr : m.getIR().getReturnVars()) {
+                        Var r = stmt.getResult();
+                        addPFGEdge(csManager.getCSVar(ct, mr), csManager.getCSVar(context, r));
+                    }
+                }
+            }
+            return null;
+        }
     }
 
     /**
