@@ -142,6 +142,22 @@ class Solver {
             addPFGEdge(right, left);
             return null;
         }
+        public Void visit(LoadField stmt) {
+            if(stmt.isStatic()) {
+                Pointer left = csManager.getCSVar(context, stmt.getLValue());
+                Pointer right = csManager.getStaticField(stmt.getFieldRef().resolve());
+                addPFGEdge(right, left);
+            }
+            return null;
+        }
+        public Void visit(StoreField stmt) {
+            if(stmt.isStatic()) {
+                Pointer left = csManager.getStaticField(stmt.getFieldRef().resolve());
+                Pointer right = csManager.getCSVar(context, stmt.getRValue());
+                addPFGEdge(right, left);
+            }
+            return null;
+        }
     }
 
     /**
