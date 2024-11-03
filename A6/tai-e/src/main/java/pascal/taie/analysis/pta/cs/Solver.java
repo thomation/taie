@@ -160,7 +160,45 @@ class Solver {
      * Processes work-list entries until the work-list is empty.
      */
     private void analyze() {
-        // TODO - finish me
+        // LAB6
+        while (!workList.isEmpty()) {
+            WorkList.Entry entry = workList.pollEntry();
+            PointsToSet delta = PointsToSetFactory.make();
+            Pointer n = entry.pointer();
+            for(CSObj obj: entry.pointsToSet()) {
+                if(!n.getPointsToSet().contains(obj))
+                    delta.addObject(obj);
+            }
+            propagate(n, delta);
+            if(n instanceof CSVar csn) {
+                for(CSObj o: delta) {
+                    Var x = csn.getVar();
+                    for (StoreField sf : x.getStoreFields()) {
+                        Pointer y = csManager.getCSVar(csn.getContext(), sf.getRValue());
+                        JField f = sf.getFieldRef().resolve();
+                        Pointer of = csManager.getInstanceField(o, f);
+                        addPFGEdge(y, of);
+                    }
+                    for(LoadField lf: x.getLoadFields()) {
+                        Pointer y = csManager.getCSVar(csn.getContext(), lf.getLValue());
+                        JField f = lf.getFieldRef().resolve();
+                        Pointer of = csManager.getInstanceField(o, f);
+                        addPFGEdge(of, y);
+                    }
+                    for (StoreArray sa : x.getStoreArrays()) {
+                        Pointer y = csManager.getCSVar(csn.getContext(), sa.getRValue());
+                        ArrayIndex ai = csManager.getArrayIndex(o);
+                        addPFGEdge(y, ai);
+                    }
+                    for (LoadArray la : x.getLoadArrays()) {
+                        Pointer y = csManager.getCSVar(csn.getContext(), la.getLValue());
+                        ArrayIndex ai = csManager.getArrayIndex(o);
+                        addPFGEdge(ai, y);
+                    }
+                    processCall(csn, o);
+                }
+            }
+        }
     }
 
     /**
@@ -168,8 +206,14 @@ class Solver {
      * returns the difference set of pointsToSet and pt(pointer).
      */
     private PointsToSet propagate(Pointer pointer, PointsToSet pointsToSet) {
-        // TODO - finish me
-        return null;
+        // LAB6
+        if(pointsToSet.isEmpty())
+            return null;
+        for(CSObj obj: pointsToSet)
+            pointer.getPointsToSet().addObject(obj);
+        for(Pointer t: pointerFlowGraph.getSuccsOf(pointer))
+            workList.addEntry(t, pointsToSet);
+        return pointer.getPointsToSet();
     }
 
     /**
