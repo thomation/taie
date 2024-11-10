@@ -69,6 +69,10 @@ public class _2CallSelector implements ContextSelector {
     @Override
     public Context selectHeapContext(CSMethod method, Obj obj) {
         // LIB6
-        return method.getContext();
+        // Just one layer of heap context
+        Context old = method.getContext();
+        if(old instanceof ListContext<?> l && l.getLength() > 0)
+            return ListContext.make(l.getElementAt(l.getLength() - 1));
+        return old;
     }
 }
