@@ -24,8 +24,11 @@ package pascal.taie.analysis.dataflow.inter;
 
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.icfg.ICFG;
+import pascal.taie.analysis.graph.icfg.ICFGEdge;
 import pascal.taie.util.collection.SetQueue;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -59,10 +62,46 @@ class InterSolver<Method, Node, Fact> {
     }
 
     private void initialize() {
-        // TODO - finish me
+        // LIB4
+        Node entry = getEntryNode();
+        result.setOutFact(entry, analysis.newBoundaryFact(entry));
+        for (Node node : icfg) {
+            if (node.equals(entry))
+                continue;
+            ;
+            result.setInFact(node, analysis.newInitialFact());
+            result.setOutFact(node, analysis.newInitialFact());
+        }
+    }
+    Node getEntryNode() {
+        for (Method m : icfg.entryMethods().toList()) {
+            Node node = icfg.getEntryOf(m);
+            return node;
+        }
+        throw new RuntimeException("No entry node");
     }
 
     private void doSolve() {
-        // TODO - finish me
+        // LiB4
+        Node entry = getEntryNode();
+        List<Node> worklist = new LinkedList<Node>();
+        for (Node node : icfg) {
+            if (node.equals(entry))
+                continue;
+            worklist.add(node);
+        }
+        while (!worklist.isEmpty()) {
+            Node node = worklist.remove(0);
+            Fact in = analysis.newInitialFact();
+            for(ICFGEdge<Node> edge : icfg.getInEdgesOf(node) ) {
+                analysis.meetInto(analysis.transferEdge(edge, result.getOutFact(edge.getSource())), in);
+            }
+            result.setInFact(node, in);
+            if (analysis.transferNode(node, result.getInFact(node), result.getOutFact(node))) {
+                for(ICFGEdge<Node> edge : icfg.getOutEdgesOf(node)) {
+                    worklist.add(edge.getTarget());
+                }
+            }
+        }
     }
 }
