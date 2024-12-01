@@ -22,9 +22,13 @@
 
 package pascal.taie.analysis.dataflow.inter;
 
+import pascal.taie.World;
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.icfg.ICFG;
+import pascal.taie.analysis.graph.icfg.ICFGBuilder;
 import pascal.taie.analysis.graph.icfg.ICFGEdge;
+import pascal.taie.analysis.pta.PointerAnalysisResult;
+import pascal.taie.analysis.pta.cs.CSPTA;
 import pascal.taie.util.collection.SetQueue;
 
 import java.util.LinkedList;
@@ -55,6 +59,7 @@ class InterSolver<Method, Node, Fact> {
     }
 
     DataflowResult<Node, Fact> solve() {
+        PointerAnalysisResult par = World.get().getResult(CSPTA.ID);
         result = new DataflowResult<>();
         initialize();
         doSolve();
