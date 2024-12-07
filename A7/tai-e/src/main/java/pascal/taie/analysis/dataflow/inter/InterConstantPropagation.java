@@ -33,16 +33,23 @@ import pascal.taie.analysis.graph.icfg.CallToReturnEdge;
 import pascal.taie.analysis.graph.icfg.NormalEdge;
 import pascal.taie.analysis.graph.icfg.ReturnEdge;
 import pascal.taie.analysis.pta.PointerAnalysisResult;
+import pascal.taie.analysis.pta.core.cs.element.CSObj;
+import pascal.taie.analysis.pta.core.cs.element.InstanceField;
+import pascal.taie.analysis.pta.core.heap.Obj;
 import pascal.taie.config.AnalysisConfig;
 import pascal.taie.ir.IR;
-import pascal.taie.ir.exp.InvokeExp;
-import pascal.taie.ir.exp.LValue;
-import pascal.taie.ir.exp.Var;
+import pascal.taie.ir.exp.*;
+import pascal.taie.ir.proginfo.FieldRef;
 import pascal.taie.ir.stmt.Invoke;
 import pascal.taie.ir.stmt.Stmt;
+import pascal.taie.ir.stmt.StoreField;
+import pascal.taie.language.classes.JField;
 import pascal.taie.language.classes.JMethod;
 
+import java.util.Collection;
+import java.util.LinkedList;
 import java.util.Optional;
+import java.util.logging.FileHandler;
 
 /**
  * Implementation of interprocedural constant propagation for int values.
@@ -53,6 +60,7 @@ public class InterConstantPropagation extends
     public static final String ID = "inter-constprop";
 
     private final ConstantPropagation cp;
+    private PointerAnalysisResult ptaResult;
 
     public InterConstantPropagation(AnalysisConfig config) {
         super(config);
@@ -62,7 +70,7 @@ public class InterConstantPropagation extends
     @Override
     protected void initialize() {
         String ptaId = getOptions().getString("pta");
-        PointerAnalysisResult pta = World.get().getResult(ptaId);
+        ptaResult = World.get().getResult(ptaId);
         // You can do initialization work here
     }
 
@@ -92,11 +100,63 @@ public class InterConstantPropagation extends
         // LIB4
         return cp.transferNode(stmt, in, out);
     }
-
+    public class FieldHelper
+    {
+        public FieldHelper(Obj obj, JField field, Var value) {
+            this.obj = obj;;
+            this.field = field;
+            this.value = value;
+        }
+        public Obj obj;
+        public JField field;
+        public Var value;
+    }
+    LinkedList<FieldHelper> fieldHelperList = new LinkedList<FieldHelper>();
     @Override
     protected boolean transferNonCallNode(Stmt stmt, CPFact in, CPFact out) {
         // LIB4
-        return cp.transferNode(stmt, in, out);
+        boolean change =  cp.transferNode(stmt, in, out);
+        if (!stmt.getDef().isEmpty()) {
+            LValue def = stmt.getDef().get();
+            if(stmt instanceof StoreField storeField) {
+                if (def instanceof InstanceFieldAccess instanceFieldAccess) {
+                    for (Obj o : ptaResult.getPointsToSet(instanceFieldAccess.getBase())) {
+                        System.out.println(o);
+                        Var rValue = (Var)storeField.getRValue(); // TODO: RValue is not a Var?
+                        fieldHelperList.add(new FieldHelper(o, instanceFieldAccess.getFieldRef().resolveNullable(), rValue));
+                    }
+                }
+            }
+            if(def instanceof Var var) {
+                for (Exp exp : stmt.getUses()) {
+                    if (exp instanceof InstanceFieldAccess instanceFieldAccesExp) {
+                        Collection<InstanceField> fields =  ptaResult.getInstanceFields();
+                        for(Obj o :ptaResult.getPointsToSet(instanceFieldAccesExp.getBase()))
+                        {
+                            System.out.println(o);
+                            Collection<CSObj> csobjs = ptaResult.getCSObjects();
+                            for(CSObj cso : csobjs) {
+                                if(cso.getObject() == o) {
+                                    System.out.println("get csobj");
+                                    for(InstanceField field: fields) {
+                                        if(field.getBase() == cso) {
+                                            System.out.println("get filed");
+                                            for(FieldHelper fh: fieldHelperList) {
+                                                if(fh.obj == o && fh.field.equals(field.getField())) {
+                                                    System.out.println(fh.value);
+                                                    out.update(var, out.get(fh.value));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return change;
     }
 
     @Override
