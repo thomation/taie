@@ -149,6 +149,9 @@ public class ConstantPropagation extends
         if (exp instanceof InstanceFieldAccess) {
             return Value.getNAC();
         }
+        if (exp instanceof ArrayAccess) {
+            return Value.getNAC();
+        }
         return Value.getUndef();
     }
     // LIB7
