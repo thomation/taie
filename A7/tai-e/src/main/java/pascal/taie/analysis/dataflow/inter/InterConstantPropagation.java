@@ -22,6 +22,7 @@
 
 package pascal.taie.analysis.dataflow.inter;
 
+import jas.CP;
 import pascal.taie.World;
 import pascal.taie.analysis.dataflow.analysis.constprop.CPFact;
 import pascal.taie.analysis.dataflow.analysis.constprop.ConstantPropagation;
@@ -33,6 +34,7 @@ import pascal.taie.analysis.graph.icfg.CallToReturnEdge;
 import pascal.taie.analysis.graph.icfg.NormalEdge;
 import pascal.taie.analysis.graph.icfg.ReturnEdge;
 import pascal.taie.analysis.pta.PointerAnalysisResult;
+import pascal.taie.analysis.pta.core.cs.element.ArrayIndex;
 import pascal.taie.analysis.pta.core.cs.element.CSObj;
 import pascal.taie.analysis.pta.core.cs.element.InstanceField;
 import pascal.taie.analysis.pta.core.heap.Obj;
@@ -40,13 +42,11 @@ import pascal.taie.config.AnalysisConfig;
 import pascal.taie.ir.IR;
 import pascal.taie.ir.exp.*;
 import pascal.taie.ir.proginfo.FieldRef;
-import pascal.taie.ir.stmt.Invoke;
-import pascal.taie.ir.stmt.LoadField;
-import pascal.taie.ir.stmt.Stmt;
-import pascal.taie.ir.stmt.StoreField;
+import pascal.taie.ir.stmt.*;
 import pascal.taie.language.classes.JField;
 import pascal.taie.language.classes.JMethod;
 
+import java.sql.Array;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.Optional;
@@ -80,7 +80,21 @@ public class InterConstantPropagation extends
         private final JField field;
         private final Var value;
     }
-    LinkedList<FieldHelper> fieldHelperList = new LinkedList<FieldHelper>();
+    LinkedList<FieldHelper> fieldHelperList = new LinkedList<>();
+    public static class ArrayHelper {
+        public ArrayHelper(Obj obj, Var index, Var value) {
+            this.obj = obj;
+            this.index = index;
+            this.value = value;
+        }
+        public boolean match(Obj obj) {
+            return this.obj == obj;
+        }
+        private final Obj obj;
+        private final Var index;
+        private final Var value;
+    }
+    LinkedList<ArrayHelper> arrayHelperList = new LinkedList<>();
     public InterConstantPropagation(AnalysisConfig config) {
         super(config);
         cp = new ConstantPropagation(new AnalysisConfig(ConstantPropagation.ID));
@@ -123,19 +137,22 @@ public class InterConstantPropagation extends
     protected boolean transferNonCallNode(Stmt stmt, CPFact in, CPFact out) {
         // LIB7
         boolean change =  cp.transferNode(stmt, in, out);
-        if(stmt instanceof StoreField) {
-            handleStoreField(stmt);
-        } else if(stmt instanceof LoadField) {
-            change |= handleLoadField(stmt, out);
+        if(stmt instanceof StoreField storeField) {
+            handleStoreField(storeField);
+        } else if(stmt instanceof LoadField loadField) {
+            change |= handleLoadField(loadField, out);
+        } else if(stmt instanceof StoreArray storeArray) {
+            handleStoreArray(storeArray);
+        } else if(stmt instanceof LoadArray loadArray) {
+            change |= handleLoadArray(loadArray, out);
         }
         return change;
     }
-    private void handleStoreField(Stmt stmt) {
-        if (stmt.getDef().isEmpty()) {
+    private void handleStoreField(StoreField storeField) {
+        if (storeField.getDef().isEmpty()) {
             return;
         }
-        LValue def = stmt.getDef().get();
-        StoreField storeField = (StoreField)stmt;
+        LValue def = storeField.getDef().get();
         if (def instanceof InstanceFieldAccess instanceFieldAccess) {
             for (Obj o : ptaResult.getPointsToSet(instanceFieldAccess.getBase())) {
                 System.out.println(o);
@@ -144,7 +161,7 @@ public class InterConstantPropagation extends
             }
         }
     }
-    private boolean handleLoadField(Stmt stmt, CPFact out) {
+    private boolean handleLoadField(LoadField stmt, CPFact out) {
         boolean change = false;
         if (stmt.getDef().isEmpty()) {
             return change;
@@ -175,6 +192,41 @@ public class InterConstantPropagation extends
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+        return change;
+    }
+    private void handleStoreArray(StoreArray storeArray) {
+        if (storeArray.getDef().isEmpty()) {
+            return;
+        }
+        LValue def = storeArray.getDef().get();
+        if (def instanceof ArrayAccess arrayAccess) {
+            for(Obj o: ptaResult.getPointsToSet(arrayAccess.getBase())) {
+                System.out.println(o);
+                Var index = arrayAccess.getIndex();
+                Var rValue = (Var)storeArray.getRValue();
+                arrayHelperList.add(new ArrayHelper(o, index, rValue));
+            }
+        }
+    }
+    private boolean handleLoadArray(LoadArray stmt, CPFact out) {
+        boolean change = false;
+        if (stmt.getDef().isEmpty()) {
+            return change;
+        }
+        LValue def = stmt.getDef().get();
+        if(def instanceof Var var) {
+            ArrayAccess arrayAccess = stmt.getArrayAccess();
+            Var index = arrayAccess.getIndex();
+            for(Obj o: ptaResult.getPointsToSet(arrayAccess.getBase())) {
+                for(ArrayHelper arrayHelper: arrayHelperList) {
+                    if(arrayHelper.match(o) && out.get(index) == out.get(arrayHelper.index)) {
+                        System.out.println(arrayHelper);
+                        out.update(var, out.get(arrayHelper.value));
+                        change = true;
                     }
                 }
             }
