@@ -41,6 +41,7 @@ import pascal.taie.ir.IR;
 import pascal.taie.ir.exp.*;
 import pascal.taie.ir.proginfo.FieldRef;
 import pascal.taie.ir.stmt.Invoke;
+import pascal.taie.ir.stmt.LoadField;
 import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.ir.stmt.StoreField;
 import pascal.taie.language.classes.JField;
@@ -72,9 +73,12 @@ public class InterConstantPropagation extends
         public boolean match(Obj obj, JField field) {
             return this.obj == obj && this.field == field;
         }
-        public Obj obj;
-        public JField field;
-        public Var value;
+        public Var getValue() {
+            return value;
+        }
+        private final Obj obj;
+        private final JField field;
+        private final Var value;
     }
     LinkedList<FieldHelper> fieldHelperList = new LinkedList<FieldHelper>();
     public InterConstantPropagation(AnalysisConfig config) {
@@ -117,38 +121,54 @@ public class InterConstantPropagation extends
     }
     @Override
     protected boolean transferNonCallNode(Stmt stmt, CPFact in, CPFact out) {
-        // LIB4
+        // LIB7
         boolean change =  cp.transferNode(stmt, in, out);
-        if (!stmt.getDef().isEmpty()) {
-            LValue def = stmt.getDef().get();
-            if(stmt instanceof StoreField storeField) {
-                if (def instanceof InstanceFieldAccess instanceFieldAccess) {
-                    for (Obj o : ptaResult.getPointsToSet(instanceFieldAccess.getBase())) {
-                        System.out.println(o);
-                        Var rValue = (Var)storeField.getRValue(); // TODO: RValue is not a Var?
-                        fieldHelperList.add(new FieldHelper(o, instanceFieldAccess.getFieldRef().resolveNullable(), rValue));
-                    }
-                }
+        if(stmt instanceof StoreField) {
+            handleStoreField(stmt);
+        } else if(stmt instanceof LoadField) {
+            change |= handleLoadField(stmt, out);
+        }
+        return change;
+    }
+    private void handleStoreField(Stmt stmt) {
+        if (stmt.getDef().isEmpty()) {
+            return;
+        }
+        LValue def = stmt.getDef().get();
+        StoreField storeField = (StoreField)stmt;
+        if (def instanceof InstanceFieldAccess instanceFieldAccess) {
+            for (Obj o : ptaResult.getPointsToSet(instanceFieldAccess.getBase())) {
+                System.out.println(o);
+                Var rValue = (Var)storeField.getRValue(); // TODO: RValue is not a Var?
+                fieldHelperList.add(new FieldHelper(o, instanceFieldAccess.getFieldRef().resolveNullable(), rValue));
             }
-            if(def instanceof Var var) {
-                for (Exp exp : stmt.getUses()) {
-                    if (exp instanceof InstanceFieldAccess instanceFieldAccesExp) {
-                        Collection<InstanceField> fields =  ptaResult.getInstanceFields();
-                        for(Obj o :ptaResult.getPointsToSet(instanceFieldAccesExp.getBase()))
-                        {
-                            System.out.println(o);
-                            Collection<CSObj> csobjs = ptaResult.getCSObjects();
-                            for(CSObj cso : csobjs) {
-                                if(cso.getObject() == o) {
-                                    System.out.println("get csobj");
-                                    for(InstanceField field: fields) {
-                                        if(field.getBase() == cso) {
-                                            System.out.println("get filed");
-                                            for(FieldHelper fh: fieldHelperList) {
-                                                if(fh.match(o, field.getField())) {
-                                                    System.out.println(fh.value);
-                                                    out.update(var, out.get(fh.value));
-                                                }
+        }
+    }
+    private boolean handleLoadField(Stmt stmt, CPFact out) {
+        boolean change = false;
+        if (stmt.getDef().isEmpty()) {
+            return change;
+        }
+        LValue def = stmt.getDef().get();
+        if(def instanceof Var var) {
+            for (Exp exp : stmt.getUses()) {
+                if (exp instanceof InstanceFieldAccess instanceFieldAccesExp) {
+                    Collection<InstanceField> fields =  ptaResult.getInstanceFields();
+                    for(Obj o :ptaResult.getPointsToSet(instanceFieldAccesExp.getBase()))
+                    {
+                        System.out.println(o);
+                        Collection<CSObj> csobjs = ptaResult.getCSObjects();
+                        for(CSObj cso : csobjs) {
+                            if(cso.getObject() == o) {
+                                System.out.println("get csobj");
+                                for(InstanceField field: fields) {
+                                    if(field.getBase() == cso) {
+                                        System.out.println("get filed");
+                                        for(FieldHelper fh: fieldHelperList) {
+                                            if(fh.match(o, field.getField())) {
+                                                System.out.println(fh.getValue());
+                                                out.update(var, out.get(fh.getValue()));
+                                                change = true;
                                             }
                                         }
                                     }
@@ -161,7 +181,6 @@ public class InterConstantPropagation extends
         }
         return change;
     }
-
     @Override
     protected CPFact transferNormalEdge(NormalEdge<Stmt> edge, CPFact out) {
         // LIB4
