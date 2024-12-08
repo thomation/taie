@@ -62,6 +62,21 @@ public class InterConstantPropagation extends
     private final ConstantPropagation cp;
     private PointerAnalysisResult ptaResult;
 
+    public static class FieldHelper
+    {
+        public FieldHelper(Obj obj, JField field, Var value) {
+            this.obj = obj;;
+            this.field = field;
+            this.value = value;
+        }
+        public boolean match(Obj obj, JField field) {
+            return this.obj == obj && this.field == field;
+        }
+        public Obj obj;
+        public JField field;
+        public Var value;
+    }
+    LinkedList<FieldHelper> fieldHelperList = new LinkedList<FieldHelper>();
     public InterConstantPropagation(AnalysisConfig config) {
         super(config);
         cp = new ConstantPropagation(new AnalysisConfig(ConstantPropagation.ID));
@@ -100,18 +115,6 @@ public class InterConstantPropagation extends
         // LIB4
         return cp.transferNode(stmt, in, out);
     }
-    public class FieldHelper
-    {
-        public FieldHelper(Obj obj, JField field, Var value) {
-            this.obj = obj;;
-            this.field = field;
-            this.value = value;
-        }
-        public Obj obj;
-        public JField field;
-        public Var value;
-    }
-    LinkedList<FieldHelper> fieldHelperList = new LinkedList<FieldHelper>();
     @Override
     protected boolean transferNonCallNode(Stmt stmt, CPFact in, CPFact out) {
         // LIB4
@@ -142,7 +145,7 @@ public class InterConstantPropagation extends
                                         if(field.getBase() == cso) {
                                             System.out.println("get filed");
                                             for(FieldHelper fh: fieldHelperList) {
-                                                if(fh.obj == o && fh.field.equals(field.getField())) {
+                                                if(fh.match(o, field.getField())) {
                                                     System.out.println(fh.value);
                                                     out.update(var, out.get(fh.value));
                                                 }
