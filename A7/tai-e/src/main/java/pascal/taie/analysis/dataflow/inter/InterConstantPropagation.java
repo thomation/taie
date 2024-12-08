@@ -82,7 +82,7 @@ public class InterConstantPropagation extends
     }
     LinkedList<FieldHelper> fieldHelperList = new LinkedList<>();
     public static class ArrayHelper {
-        public ArrayHelper(Obj obj, Var index, Var value) {
+        public ArrayHelper(Obj obj, Value index, Value value) {
             this.obj = obj;
             this.index = index;
             this.value = value;
@@ -91,8 +91,8 @@ public class InterConstantPropagation extends
             return this.obj == obj;
         }
         private final Obj obj;
-        private final Var index;
-        private final Var value;
+        private final Value index;
+        private final Value value;
     }
     LinkedList<ArrayHelper> arrayHelperList = new LinkedList<>();
     public InterConstantPropagation(AnalysisConfig config) {
@@ -142,7 +142,7 @@ public class InterConstantPropagation extends
         } else if(stmt instanceof LoadField loadField) {
             change |= handleLoadField(loadField, out);
         } else if(stmt instanceof StoreArray storeArray) {
-            handleStoreArray(storeArray);
+            handleStoreArray(storeArray, out);
         } else if(stmt instanceof LoadArray loadArray) {
             change |= handleLoadArray(loadArray, out);
         }
@@ -198,7 +198,7 @@ public class InterConstantPropagation extends
         }
         return change;
     }
-    private void handleStoreArray(StoreArray storeArray) {
+    private void handleStoreArray(StoreArray storeArray, CPFact out) {
         if (storeArray.getDef().isEmpty()) {
             return;
         }
@@ -208,7 +208,7 @@ public class InterConstantPropagation extends
                 System.out.println(o);
                 Var index = arrayAccess.getIndex();
                 Var rValue = (Var)storeArray.getRValue();
-                arrayHelperList.add(new ArrayHelper(o, index, rValue));
+                arrayHelperList.add(new ArrayHelper(o, out.get(index), out.get(rValue)));
             }
         }
     }
@@ -218,15 +218,17 @@ public class InterConstantPropagation extends
             return change;
         }
         LValue def = stmt.getDef().get();
-        if(def instanceof Var var) {
+        if (def instanceof Var var) {
             ArrayAccess arrayAccess = stmt.getArrayAccess();
             Var index = arrayAccess.getIndex();
-            for(Obj o: ptaResult.getPointsToSet(arrayAccess.getBase())) {
-                for(ArrayHelper arrayHelper: arrayHelperList) {
-                    if(arrayHelper.match(o) && out.get(index) == out.get(arrayHelper.index)) {
-                        System.out.println(arrayHelper);
-                        out.update(var, out.get(arrayHelper.value));
-                        change = true;
+            for (Obj o : ptaResult.getPointsToSet(arrayAccess.getBase())) {
+                for (ArrayHelper arrayHelper : arrayHelperList) {
+                    if (arrayHelper.match(o)) {
+                        if (out.get(index) == arrayHelper.index) {
+                            System.out.println(arrayHelper);
+                            out.update(var, arrayHelper.value);
+                            change = true;
+                        }
                     }
                 }
             }
