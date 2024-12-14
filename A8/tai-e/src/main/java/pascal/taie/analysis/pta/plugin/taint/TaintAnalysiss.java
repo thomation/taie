@@ -28,11 +28,10 @@ import pascal.taie.World;
 import pascal.taie.analysis.pta.PointerAnalysisResult;
 import pascal.taie.analysis.pta.core.cs.context.Context;
 import pascal.taie.analysis.pta.core.cs.element.CSManager;
+import pascal.taie.analysis.pta.core.cs.element.CSMethod;
 import pascal.taie.analysis.pta.cs.Solver;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 public class TaintAnalysiss {
 
@@ -60,8 +59,6 @@ public class TaintAnalysiss {
         logger.info(config);
     }
 
-    // TODO - finish me
-
     public void onFinish() {
         Set<TaintFlow> taintFlows = collectTaintFlows();
         solver.getResult().storeResult(getClass().getName(), taintFlows);
@@ -70,8 +67,22 @@ public class TaintAnalysiss {
     private Set<TaintFlow> collectTaintFlows() {
         Set<TaintFlow> taintFlows = new TreeSet<>();
         PointerAnalysisResult result = solver.getResult();
-        // TODO - finish me
+        // LIB8
         // You could query pointer analysis results you need via variable result.
+        var methods = result.getCSCallGraph().entryMethods();
+        methods.forEach(this::handleEntry);
         return taintFlows;
+    }
+    private void handleEntry(CSMethod entry) {
+        System.out.println(">>>>>>>>>>>>>>>>>>> entry:" + entry);
+        PointerAnalysisResult result = solver.getResult();
+        Queue<CSMethod> wl = new ArrayDeque<>();
+        wl.add(entry);
+        while(!wl.isEmpty())
+        {
+            var m = wl.poll();
+            System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>method: " + m);
+            wl.addAll(result.getCSCallGraph().getSuccsOf(m));
+        }
     }
 }
