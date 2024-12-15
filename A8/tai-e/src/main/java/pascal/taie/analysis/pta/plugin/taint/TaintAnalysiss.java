@@ -29,7 +29,11 @@ import pascal.taie.analysis.pta.PointerAnalysisResult;
 import pascal.taie.analysis.pta.core.cs.context.Context;
 import pascal.taie.analysis.pta.core.cs.element.CSManager;
 import pascal.taie.analysis.pta.core.cs.element.CSMethod;
+import pascal.taie.analysis.pta.core.heap.Obj;
 import pascal.taie.analysis.pta.cs.Solver;
+import pascal.taie.ir.stmt.Invoke;
+import pascal.taie.language.classes.JMethod;
+import pascal.taie.language.type.Type;
 
 import java.util.*;
 
@@ -84,5 +88,15 @@ public class TaintAnalysiss {
             System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>method: " + m);
             wl.addAll(result.getCSCallGraph().getSuccsOf(m));
         }
+    }
+    public boolean isSource(JMethod method, Type type) {
+        for(var source: config.getSources()) {
+            if(source.method() == method && source.type() == type)
+                return true;
+        }
+        return false;
+    }
+    public Obj makeTaint(Invoke source, Type type) {
+       return manager.makeTaint(source, type);
     }
 }

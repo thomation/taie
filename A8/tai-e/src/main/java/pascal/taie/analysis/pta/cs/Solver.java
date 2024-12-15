@@ -192,6 +192,12 @@ public class Solver {
                     for(Var mr : m.getIR().getReturnVars()) {
                         Var r = stmt.getResult();
                         addPFGEdge(csManager.getCSVar(ct, mr), csManager.getCSVar(context, r));
+                        if(taintAnalysis.isSource(m, r.getType())) {
+                            System.out.println("get source");
+                            var taintObj = taintAnalysis.makeTaint(stmt, r.getType());
+                            var taintCSObj = csManager.getCSObj(contextSelector.getEmptyContext(), taintObj);
+                            csManager.getCSVar(context, r).getPointsToSet().addObject(taintCSObj);
+                        }
                     }
                 }
             }
