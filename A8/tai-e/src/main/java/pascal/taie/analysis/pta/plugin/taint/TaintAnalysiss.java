@@ -73,20 +73,36 @@ public class TaintAnalysiss {
         PointerAnalysisResult result = solver.getResult();
         // LIB8
         // You could query pointer analysis results you need via variable result.
-        var methods = result.getCSCallGraph().entryMethods();
-        methods.forEach(this::handleEntry);
+        var methods = result.getCSCallGraph().reachableMethods();
+        methods.forEach(m -> hanldeCSMethod(m, taintFlows));
         return taintFlows;
     }
-    private void handleEntry(CSMethod entry) {
-        System.out.println(">>>>>>>>>>>>>>>>>>> entry:" + entry);
+    private void hanldeCSMethod(CSMethod csMethod, Set<TaintFlow> taintFlows) {
+        var method = csMethod.getMethod();
+        for(int i = 0; i < method.getParamCount(); i ++) {
+            for(var sink :config.getSinks()) {
+                if(sink.method() == method && sink.index() == i) {
+                    handleSink(csMethod, i, taintFlows);
+                }
+            }
+
+        }
+    }
+    private void handleSink(CSMethod csMethod, int i, Set<TaintFlow> taintFlows) {
+        var method = csMethod.getMethod();
+        // get pt(c:ai)
+        var p = method.getIR().getParam(i);
         PointerAnalysisResult result = solver.getResult();
-        Queue<CSMethod> wl = new ArrayDeque<>();
-        wl.add(entry);
-        while(!wl.isEmpty())
-        {
-            var m = wl.poll();
-            System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>method: " + m);
-            wl.addAll(result.getCSCallGraph().getSuccsOf(m));
+        var pts = result.getPointsToSet(p);
+        for(var obj : pts) {
+            if(manager.isTaint(obj)) {
+                var j = manager.getSourceCall(obj);
+                for(var caller: result.getCSCallGraph().getCallersOf(csMethod)) {
+                    var l = caller.getCallSite();
+                    var f = new TaintFlow(j, l, i);
+                    taintFlows.add(f);
+                }
+            }
         }
     }
     public boolean isSource(JMethod method, Type type) {
