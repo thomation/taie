@@ -91,14 +91,14 @@ public class TaintAnalysiss {
     private void handleSink(CSMethod csMethod, int i, Set<TaintFlow> taintFlows) {
         var method = csMethod.getMethod();
         // get pt(c:ai)
-        var p = method.getIR().getParam(i);
         PointerAnalysisResult result = solver.getResult();
-        var pts = result.getPointsToSet(p);
-        for(var obj : pts) {
-            if(manager.isTaint(obj)) {
-                var j = manager.getSourceCall(obj);
-                for(var caller: result.getCSCallGraph().getCallersOf(csMethod)) {
-                    var l = caller.getCallSite();
+        for(var caller: result.getCSCallGraph().getCallersOf(csMethod)) {
+            var l = caller.getCallSite();
+            var arg = l.getInvokeExp().getArg(i);
+            var pts = result.getPointsToSet(arg);
+            for(var obj : pts) {
+                if (manager.isTaint(obj)) {
+                    var j = manager.getSourceCall(obj);
                     var f = new TaintFlow(j, l, i);
                     taintFlows.add(f);
                 }
